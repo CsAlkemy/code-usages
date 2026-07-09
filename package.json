@@ -7,7 +7,7 @@
   "author": "Claude Usage Bar contributors",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_GITHUB_USERNAME/claude-usage-bar.git"
+    "url": "https://github.com/CsAlkemy/claude-usage-bar.git"
   },
   "scripts": {
     "start": "electron .",
