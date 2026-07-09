@@ -14,12 +14,13 @@ const hasCert = !!process.env.CSC_LINK;
 const owner = process.env.GITHUB_REPOSITORY_OWNER || 'CsAlkemy';
 
 module.exports = {
-  appId: 'com.tuliptech.claude-usage-bar',
-  productName: 'Claude Usage Bar',
+  appId: 'com.tuliptech.code-usages',
+  productName: 'Code Usages',
   afterPack: './build/after-pack.js',
   files: ['src/**/*', 'assets/**/*', 'package.json'],
   // No spaces in artifact names — keeps Homebrew/curl URLs sane.
   artifactName: '${name}-${version}-${arch}.${ext}',
+  compression: 'maximum',
   publish: { provider: 'github', owner, repo: 'code-usages' },
   mac: {
     // zip alongside dmg: electron-updater consumes the zip for auto-updates.
@@ -37,5 +38,5 @@ module.exports = {
         }
       : { identity: null }),
   },
-  dmg: { title: 'Claude Usage Bar' },
+  dmg: { title: 'Code Usages' },
 };

@@ -32,8 +32,10 @@ jobs:
 
       - run: npm ci
 
+      # Separate arm64 + x64 artifacts (not universal): each download is half
+      # the size, and the updater feed lists both so users get the right one.
       - name: Build, sign, notarize, publish
-        run: npx electron-builder --mac --universal --publish always -c electron-builder.config.js
+        run: npx electron-builder --mac --arm64 --x64 --publish always -c electron-builder.config.js
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK }}

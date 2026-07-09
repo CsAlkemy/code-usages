@@ -1,4 +1,4 @@
-# Claude Usage Bar
+# Code Usages
 
 A tiny macOS menu-bar app (Windows/Linux tray supported too) that shows your
 **claude.ai plan usage** as a live circular progress ring — tracking your
@@ -22,13 +22,13 @@ first open: **right-click the app → Open → Open** (once). If it says the app
 "is damaged", clear the quarantine flag instead:
 
 ```bash
-xattr -cr "/Applications/Claude Usage Bar.app"
+xattr -cr "/Applications/Code Usages.app"
 ```
 
 Or via Homebrew (once the tap is set up — see `packaging/homebrew/`):
 
 ```bash
-brew install CsAlkemy/tap/claude-usage-bar
+brew install CsAlkemy/tap/code-usages
 ```
 
 **First launch:** a claude.ai window opens — sign in as normal. Seconds after
@@ -62,7 +62,7 @@ Polling is deliberately gentle — please keep it that way (`POLL_MS` in
 ## Privacy
 
 Your credentials and usage data stay in the app's local profile
-(`~/Library/Application Support/Claude Usage Bar`). There is no telemetry, no
+(`~/Library/Application Support/Code Usages`). There is no telemetry, no
 server, no analytics. The only network traffic is your own browser session
 talking to claude.ai.
 
