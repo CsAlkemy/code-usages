@@ -1,15 +1,16 @@
-# Push a tag like v0.2.0 → builds a universal macOS DMG + zip and attaches
-# them to a GitHub Release (electron-builder --publish).
+# Push a tag like v0.4.0 → builds Apple Silicon + Intel DMGs with Tauri and
+# publishes a GitHub Release with generated notes.
 #
-# Works day one with NO secrets configured — you just get an unsigned build
-# (users right-click → Open). Add these repository secrets to ship signed,
-# notarized builds instead (nothing else changes):
+# Works with NO secrets configured — you get unsigned builds (users
+# right-click → Open once). To ship signed + notarized builds, add these
+# repository secrets (Tauri picks them up automatically):
 #
-#   CSC_LINK                     base64 of the Developer ID Application .p12
-#   CSC_KEY_PASSWORD             password for that .p12
-#   APPLE_ID                     Apple ID email used for notarization
-#   APPLE_APP_SPECIFIC_PASSWORD  app-specific password for that Apple ID
-#   APPLE_TEAM_ID                10-char team id from developer.apple.com
+#   APPLE_CERTIFICATE              base64 of the Developer ID Application .p12
+#   APPLE_CERTIFICATE_PASSWORD     password for that .p12
+#   APPLE_SIGNING_IDENTITY         e.g. "Developer ID Application: Name (TEAMID)"
+#   APPLE_ID                       Apple ID email (notarization)
+#   APPLE_PASSWORD                 app-specific password for that Apple ID
+#   APPLE_TEAM_ID                  10-char team id
 name: Release
 
 on:
@@ -25,6 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -32,25 +41,32 @@ jobs:
 
       - run: npm ci
 
-      # Separate arm64 + x64 artifacts (not universal): each download is half
-      # the size, and the updater feed lists both so users get the right one.
-      - name: Build, sign, notarize, publish
-        run: npx electron-builder --mac --arm64 --x64 --publish always -c electron-builder.config.js
+      - name: Build (Apple Silicon)
+        run: npx tauri build --target aarch64-apple-darwin
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # electron-builder uploads assets to a draft — publish it with
-      # auto-generated notes so the release goes live in one step.
-      # (gh release edit has no --generate-notes flag; generate via the API.)
-      - name: Publish release notes
+      - name: Build (Intel)
+        run: npx tauri build --target x86_64-apple-darwin
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Publish release
         run: |
-          gh api "repos/${{ github.repository }}/releases/generate-notes" \
-            -f tag_name='${{ github.ref_name }}' --jq .body > /tmp/notes.md
-          gh release edit '${{ github.ref_name }}' --draft=false --latest --notes-file /tmp/notes.md
+          v="${GITHUB_REF_NAME#v}"
+          mkdir -p out
+          cp "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/Code Usages_${v}_aarch64.dmg" "out/code-usages-${v}-arm64.dmg"
+          cp "src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/Code Usages_${v}_x64.dmg" "out/code-usages-${v}-x64.dmg"
+          gh release create "$GITHUB_REF_NAME" out/*.dmg --generate-notes --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

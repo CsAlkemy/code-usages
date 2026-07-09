@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Code Usages",
+  "version": "0.4.0",
+  "identifier": "com.tuliptech.code-usages",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "withGlobalTauri": true,
+    "windows": []
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg"],
+    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "category": "Utility",
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Popover and session windows",
+  "windows": ["popover", "session"],
+  "permissions": ["core:default"]
+}

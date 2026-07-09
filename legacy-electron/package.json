@@ -1,0 +1,25 @@
+{
+  "name": "code-usages",
+  "version": "0.3.0",
+  "description": "Menu-bar / tray ring showing your claude.ai plan usage (session + weekly). Click for details.",
+  "main": "src/main.js",
+  "license": "MIT",
+  "author": "Claude Usage Bar contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/csalkemy/code-usages.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "dist": "electron-builder --mac -c electron-builder.config.js",
+    "pack": "electron-builder --dir -c electron-builder.config.js"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}

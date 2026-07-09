@@ -1,21 +1,22 @@
 # Code Usages
 
-A tiny macOS menu-bar app (Windows/Linux tray supported too) that shows your
-**claude.ai plan usage** as a live circular progress ring — tracking your
-**current session** limit, with the weekly limits one click away in a native
-glass popover.
+A tiny macOS menu-bar app that shows your **claude.ai plan usage** as a live
+circular progress ring — tracking your **current session** limit, with the
+weekly limits one click away in a native glass popover.
 
-It works by keeping a hidden, logged-in claude.ai window in the background and
-reading your own usage from your own session. No separate account, no API key,
-and nothing ever leaves your machine.
+Built with **Tauri** (Rust + the system WebView), so the whole download is
+**~3 MB**. It works by keeping a hidden, logged-in claude.ai webview in the
+background and reading your own usage from your own session. No separate
+account, no API key, and nothing ever leaves your machine.
 
 > **Unofficial.** Not affiliated with Anthropic. It reads an undocumented
 > endpoint, so a claude.ai change can break it until the app is updated.
 
 ## Install
 
-**Download** the latest DMG from [Releases](../../releases/latest), open it,
-and drag the app to Applications.
+**Download** the DMG for your Mac from [Releases](../../releases/latest)
+(`-arm64` for Apple Silicon, `-x64` for Intel), open it, and drag the app to
+Applications.
 
 Until releases are notarized with an Apple Developer ID, macOS will warn on
 first open: **right-click the app → Open → Open** (once). If it says the app
@@ -23,12 +24,6 @@ first open: **right-click the app → Open → Open** (once). If it says the app
 
 ```bash
 xattr -cr "/Applications/Code Usages.app"
-```
-
-Or via Homebrew (once the tap is set up — see `packaging/homebrew/`):
-
-```bash
-brew install CsAlkemy/tap/code-usages
 ```
 
 **First launch:** a claude.ai window opens — sign in as normal. Seconds after
@@ -39,8 +34,7 @@ across restarts, so this is a one-time thing.
 
 - **Click** the ring → detail popover: current session + weekly limits, reset
   countdowns, plan badge.
-- **Right-click** → Refresh, open the Claude window, appearance, "Open at
-  login", Quit.
+- **Right-click** → Refresh, open the Claude window, Quit.
 - The menu-bar number and ring track your **current session** (the limit that
   actually interrupts you). If no session limit is present, it falls back to
   whichever limit is closest.
@@ -48,48 +42,50 @@ across restarts, so this is a one-time thing.
 
 ## How it works
 
-1. A hidden `BrowserWindow` holds your logged-in claude.ai session
-   (cookies persist in a `persist:claude` partition).
-2. Every ~4 minutes the app asks that session for
-   `/api/organizations/{your-org}/usage` and normalizes the `limits` array
-   into session/weekly rows (`src/usage.js`).
-3. A network-sniffing fallback (`src/inject-session.js`) watches the page's
-   own requests, so if the endpoint path moves, the app re-learns it.
+1. A hidden WebView holds your logged-in claude.ai session (cookies persist
+   in the app's own data store).
+2. Every ~4 minutes the Rust core reads that session's cookies and asks
+   `/api/organizations/{your-org}/usage` directly, normalizing the `limits`
+   array into session/weekly rows (`src-tauri/src/usage.rs`).
+3. The tray ring is rasterized in Rust (`src-tauri/src/ring.rs`); the popover
+   is plain HTML/CSS/JS (`ui/`) over Tauri IPC.
 
-Polling is deliberately gentle — please keep it that way (`POLL_MS` in
-`src/config.js`).
+Polling is deliberately gentle — please keep it that way (`POLL_SECS` in
+`src-tauri/src/lib.rs`).
 
 ## Privacy
 
-Your credentials and usage data stay in the app's local profile
-(`~/Library/Application Support/Code Usages`). There is no telemetry, no
-server, no analytics. The only network traffic is your own browser session
-talking to claude.ai.
+Your credentials and usage data stay in the app's local container. There is
+no telemetry, no server, no analytics. The only network traffic is your own
+session talking to claude.ai.
 
 ## Develop
 
+Requires Rust (`rustup`) and Node (for the Tauri CLI only).
+
 ```bash
 npm install
-npm start          # run from source
-npm run dist       # build an unsigned DMG into dist/
+npm run dev      # run with hot console output
+npm run build    # release DMG into src-tauri/target/release/bundle/dmg/
 ```
 
-Everything tweakable lives in `src/config.js` (poll interval, thresholds,
-popover size). UI is `src/popover/`; data normalization is `src/usage.js`.
+The previous Electron implementation lives in `legacy-electron/` (v0.3.0 and
+earlier were built from it) and will be removed once the Tauri port has
+settled.
 
 ## Release
 
-Releases are automated (`.github/workflows/release.yml`):
+Releases are automated (`.github/workflows/release.yml`): bump the version in
+`package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` (keep
+them in sync), then:
 
 ```bash
-npm version minor          # bumps package.json, creates the git tag
-git push --follow-tags     # CI builds universal DMG+zip → GitHub Release
+git tag v0.4.0
+git push origin main v0.4.0   # CI builds arm64 + x64 DMGs → GitHub Release
 ```
 
-With no repo secrets configured, CI publishes an unsigned build. Add
-`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`,
-and `APPLE_TEAM_ID` (see the workflow file) to ship signed + notarized builds;
-auto-update via `electron-updater` then works out of the box.
+With no repo secrets configured, CI publishes unsigned builds. Add the Apple
+secrets listed in the workflow file to ship signed + notarized builds.
 
 ## License
 
