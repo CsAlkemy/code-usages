@@ -14,18 +14,19 @@ account, no API key, and nothing ever leaves your machine.
 
 ## Install
 
-**Download** the DMG for your Mac from [Releases](../../releases/latest)
-(`-arm64` for Apple Silicon, `-x64` for Intel), open it, and drag the app to
-Applications.
+**Recommended — one line in Terminal** (no security dialogs; terminal
+downloads carry no quarantine flag):
 
-Until releases are notarized with an Apple Developer ID, macOS blocks the
-first open with *"Apple could not verify … is free of malware"*. One-time fix:
+```bash
+curl -fsSL https://raw.githubusercontent.com/csalkemy/code-usages/main/install.sh | sh
+```
 
-- Click **Done** → **System Settings → Privacy & Security** → scroll to
-  Security → **Open Anyway**, or
-- Terminal: `xattr -cr "/Applications/Code Usages.app"`
-
-Either way it's once per Mac — after that it opens normally forever.
+**Or download manually** from [Releases](../../releases/latest) (`-arm64` for
+Apple Silicon, `-x64` for Intel) and drag the app to Applications. Because
+releases aren't notarized (needs an Apple Developer ID), browser downloads
+hit *"Apple could not verify … is free of malware"* on first open. One-time
+fix: **System Settings → Privacy & Security → Open Anyway**, or
+`xattr -cr "/Applications/Code Usages.app"`.
 
 **First launch:** a claude.ai window opens — sign in as normal. Seconds after
 login the ring appears and the window hides itself. Your session persists

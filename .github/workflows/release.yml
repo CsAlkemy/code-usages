@@ -97,6 +97,9 @@ jobs:
             fi
             ln -s /Applications "$staging/Applications"
             hdiutil create -volname "Code Usages" -srcfolder "$staging" -ov -format UDZO "out/code-usages-${v}-$2.dmg"
+            # Versionless alias → stable releases/latest/download/ URL for
+            # install.sh and the landing page.
+            cp "out/code-usages-${v}-$2.dmg" "out/code-usages-$2.dmg"
           done
           ls -la out/
 
