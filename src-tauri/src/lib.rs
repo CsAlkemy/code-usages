@@ -8,7 +8,7 @@ use std::time::Duration;
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
 };
 use tauri_plugin_autostart::ManagerExt;
@@ -29,11 +29,21 @@ struct AppState {
     last_model: Value,
     learned_usage_url: Option<String>,
     learned_plan: Option<String>,
+    tray_rect: Option<tauri::Rect>,
+    last_toggle: Option<std::time::Instant>,
+    popover_shown_at: Option<std::time::Instant>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
-        Self { last_model: usage::signed_out(), learned_usage_url: None, learned_plan: None }
+        Self {
+            last_model: usage::signed_out(),
+            learned_usage_url: None,
+            learned_plan: None,
+            tray_rect: None,
+            last_toggle: None,
+            popover_shown_at: None,
+        }
     }
 }
 
@@ -250,28 +260,82 @@ fn create_popover(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     }
 
     let w = win.clone();
+    let app_for_blur = app.clone();
     win.on_window_event(move |e| {
         if let tauri::WindowEvent::Focused(false) = e {
-            let _ = w.hide();
+            // macOS bounces focus right after a menu-bar-anchored window is
+            // shown from an Accessory app — a blur that quickly means "the
+            // show itself", not the user clicking away. Ignore it.
+            let just_shown = {
+                let state = app_for_blur.state::<Mutex<AppState>>();
+                let s = state.lock().unwrap();
+                s.popover_shown_at
+                    .is_some_and(|t| t.elapsed().as_millis() < 400)
+            };
+            if !just_shown {
+                let _ = w.hide();
+            }
         }
     });
     Ok(win)
 }
 
 fn toggle_popover(app: &AppHandle) {
-    let Some(win) = app.get_webview_window("popover") else { return };
+    let Some(win) = app.get_webview_window("popover") else {
+        eprintln!("[popover] window missing");
+        return;
+    };
     if win.is_visible().unwrap_or(false) {
         let _ = win.hide();
         return;
     }
-    let _ = win.as_ref().window().move_window(Position::TrayBottomCenter);
+    let moved = win.as_ref().window().move_window(Position::TrayBottomCenter);
+    if moved.is_err() {
+        position_below_tray(app, &win);
+    }
+    eprintln!("[popover] move: {:?}, pos now: {:?}", moved, win.outer_position());
     let (model, _) = current(app);
     let _ = app.emit_to("popover", "settings", settings_json(app));
     let _ = app.emit_to("popover", "usage", &model);
     let _ = app.emit_to("popover", "reset-view", ());
-    let _ = win.show();
-    let _ = win.set_focus();
+    {
+        let state = app.state::<Mutex<AppState>>();
+        state.lock().unwrap().popover_shown_at = Some(std::time::Instant::now());
+    }
+    let shown = win.show();
+    let focused = win.set_focus();
+    eprintln!(
+        "[popover] show: {:?}, focus: {:?}, visible now: {:?}",
+        shown,
+        focused,
+        win.is_visible()
+    );
     spawn_poll(app);
+}
+
+// Fallback when the positioner plugin has no tray position: center the window
+// under the tray icon rect captured from the click event (physical pixels).
+fn position_below_tray(app: &AppHandle, win: &WebviewWindow) {
+    let rect = {
+        let state = app.state::<Mutex<AppState>>();
+        let s = state.lock().unwrap();
+        s.tray_rect
+    };
+    let Some(rect) = rect else { return };
+    let sf = win.scale_factor().unwrap_or(1.0);
+    let (x, y) = match rect.position {
+        tauri::Position::Physical(p) => (p.x as f64, p.y as f64),
+        tauri::Position::Logical(p) => (p.x * sf, p.y * sf),
+    };
+    let (w, h) = match rect.size {
+        tauri::Size::Physical(s) => (s.width as f64, s.height as f64),
+        tauri::Size::Logical(s) => (s.width * sf, s.height * sf),
+    };
+    let win_w = win.outer_size().map(|s| s.width as f64).unwrap_or(POPOVER_W * sf);
+    let _ = win.set_position(tauri::PhysicalPosition::new(
+        (x + w / 2.0 - win_w / 2.0) as i32,
+        (y + h + 2.0) as i32,
+    ));
 }
 
 fn current(app: &AppHandle) -> (Value, bool) {
@@ -399,16 +463,45 @@ pub fn run() {
                 })
                 .on_tray_icon_event(|tray, event| {
                     tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        toggle_popover(tray.app_handle());
+                    eprintln!("[tray] event: {:?}", event);
+                    let app = tray.app_handle();
+                    // Whether macOS delivers Down, Up, or both varies; react to
+                    // any left-click and debounce so a Down+Up pair toggles once.
+                    if let TrayIconEvent::Click { button: MouseButton::Left, rect, .. } = event {
+                        {
+                            let state = app.state::<Mutex<AppState>>();
+                            let mut s = state.lock().unwrap();
+                            s.tray_rect = Some(rect);
+                            let now = std::time::Instant::now();
+                            if s.last_toggle.is_some_and(|t| now.duration_since(t).as_millis() < 300) {
+                                return;
+                            }
+                            s.last_toggle = Some(now);
+                        }
+                        toggle_popover(app);
                     }
                 })
                 .build(app)?;
+
+            // Debug-only: drive the app from stdin so the popover can be
+            // exercised without clicking the real tray icon (automation can't).
+            #[cfg(debug_assertions)]
+            {
+                let h = handle.clone();
+                std::thread::spawn(move || {
+                    use std::io::BufRead;
+                    for line in std::io::stdin().lock().lines().map_while(Result::ok) {
+                        let h2 = h.clone();
+                        match line.trim() {
+                            "toggle" => {
+                                let _ = h.run_on_main_thread(move || toggle_popover(&h2));
+                            }
+                            "poll" => spawn_poll(&h),
+                            _ => {}
+                        }
+                    }
+                });
+            }
 
             // First poll after the session webview has had a moment to load;
             // show the sign-in window if there's still no data. Then keep polling.
