@@ -249,3 +249,107 @@ pub fn primary(model: &Value) -> Option<i64> {
         .filter_map(|w| w["pct"].as_i64())
         .max()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Duration;
+
+    // Half a minute of slack so num_minutes() truncation can't flake the test.
+    fn iso_in(minutes: i64) -> String {
+        (Utc::now() + Duration::minutes(minutes) + Duration::seconds(30)).to_rfc3339()
+    }
+
+    // Mirrors the real /api/organizations/{uuid}/usage payload shape.
+    fn real_payload() -> Value {
+        json!({
+            "limits": [
+                { "kind": "session", "group": "session", "percent": 5,
+                  "resets_at": iso_in(4 * 60 + 33) },
+                { "kind": "weekly_all", "group": "weekly", "percent": 26,
+                  "resets_at": iso_in(52 * 60 + 3) },
+                { "kind": "weekly_scoped", "group": "weekly", "percent": 36,
+                  "resets_at": iso_in(52 * 60 + 3),
+                  "scope": { "model": { "display_name": "Fable" } } }
+            ]
+        })
+    }
+
+    #[test]
+    fn normalizes_real_limits_payload() {
+        let m = normalize(&real_payload(), Some("team")).expect("model");
+        assert_eq!(m["signedOut"], false);
+        assert_eq!(m["plan"], "Team");
+        assert_eq!(m["session"]["label"], "Current session");
+        assert_eq!(m["session"]["pct"], 5);
+        assert_eq!(m["session"]["reset"], "Resets in 4 hr 33 min");
+        let weekly = m["weekly"].as_array().unwrap();
+        assert_eq!(weekly.len(), 2);
+        assert_eq!(weekly[0]["label"], "All models");
+        assert_eq!(weekly[0]["pct"], 26);
+        assert_eq!(weekly[0]["reset"], "Resets in 2 days");
+        assert_eq!(weekly[1]["label"], "Fable");
+        assert_eq!(weekly[1]["pct"], 36);
+    }
+
+    #[test]
+    fn primary_prefers_session() {
+        let m = normalize(&real_payload(), None).unwrap();
+        assert_eq!(primary(&m), Some(5));
+    }
+
+    #[test]
+    fn primary_falls_back_to_highest_weekly() {
+        let raw = json!({ "limits": [
+            { "kind": "weekly_all", "group": "weekly", "percent": 26 },
+            { "kind": "weekly_scoped", "group": "weekly", "percent": 36,
+              "scope": { "model": { "display_name": "Fable" } } }
+        ]});
+        let m = normalize(&raw, None).unwrap();
+        assert!(m["session"].is_null());
+        assert_eq!(primary(&m), Some(36));
+    }
+
+    #[test]
+    fn reset_formatting_bands() {
+        assert_eq!(format_reset(&json!(iso_in(30))), "Resets in 30 min");
+        assert_eq!(format_reset(&json!(iso_in(4 * 60 + 33))), "Resets in 4 hr 33 min");
+        assert_eq!(format_reset(&json!(iso_in(13 * 60))), "Resets in 1 day");
+        assert_eq!(format_reset(&json!(iso_in(52 * 60))), "Resets in 2 days");
+        assert_eq!(format_reset(&json!(iso_in(-5))), "Resets soon");
+        assert_eq!(format_reset(&Value::Null), "");
+    }
+
+    #[test]
+    fn generic_walk_fallback_finds_percentages() {
+        let raw = json!({
+            "five_hour": { "utilization": 41, "resets_at": iso_in(120) },
+            "seven_day": { "utilization": 77, "resets_at": iso_in(3000) }
+        });
+        let m = normalize(&raw, None).expect("fallback model");
+        assert_eq!(m["session"]["pct"], 41);
+        assert_eq!(m["session"]["label"], "Current session");
+    }
+
+    #[test]
+    fn fractions_scale_to_percent() {
+        let raw = json!({ "usage": { "percent": 0.37, "resets_at": iso_in(60) } });
+        let m = normalize(&raw, None).unwrap();
+        assert_eq!(m["session"]["pct"], 37);
+    }
+
+    #[test]
+    fn rejects_non_usage_payloads() {
+        assert!(normalize(&json!({ "hello": "world" }), None).is_none());
+        assert!(normalize(&json!(null), None).is_none());
+        assert!(normalize(&json!([1, 2, 3]), None).is_none());
+    }
+
+    #[test]
+    fn signed_out_shape() {
+        let m = signed_out();
+        assert_eq!(m["signedOut"], true);
+        assert!(m["session"].is_null());
+        assert_eq!(primary(&m), None);
+    }
+}
