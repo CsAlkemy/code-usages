@@ -102,20 +102,26 @@ body {
    solid card; these override the theme blocks above (same specificity, later
    in the file wins). */
 :root[data-glass] {
-  --text-2: #4d4c47;
-  --text-3: #67665f;
-  --track: rgba(20, 20, 15, 0.16);
+  --bg-glass: rgba(255, 255, 255, 0.48); /* light glass frostier — thin tint washes out over bright wallpapers */
+  --text-2: #3f3e39;
+  --text-3: #55544e;
+  --track: rgba(20, 20, 15, 0.18);
+  --hair: rgba(20, 20, 15, 0.12);
 }
 :root[data-glass][data-theme="dark"] {
+  --bg-glass: rgba(30, 29, 27, 0.30);
   --text-2: #cfcdc4;
   --text-3: #a3a197;
   --track: rgba(255, 255, 255, 0.18);
+  --hair: rgba(255, 255, 255, 0.10);
 }
 @media (prefers-color-scheme: dark) {
   :root[data-glass][data-theme="system"] {
+    --bg-glass: rgba(30, 29, 27, 0.30);
     --text-2: #cfcdc4;
     --text-3: #a3a197;
     --track: rgba(255, 255, 255, 0.18);
+    --hair: rgba(255, 255, 255, 0.10);
   }
 }
 .view {
