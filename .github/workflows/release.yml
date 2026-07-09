@@ -42,30 +42,43 @@ jobs:
 
       - run: npm ci
 
+      # Tauri treats a PRESENT-but-empty APPLE_CERTIFICATE as "please sign"
+      # and then chokes importing an empty cert. Only export the signing env
+      # when the secrets actually have content.
+      - name: Export signing env (only if secrets are set)
+        shell: bash
+        env:
+          _CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          _CERT_PW: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          _IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          _ID: ${{ secrets.APPLE_ID }}
+          _PW: ${{ secrets.APPLE_PASSWORD }}
+          _TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$_CERT" ]; then
+            {
+              echo "APPLE_CERTIFICATE=$_CERT"
+              echo "APPLE_CERTIFICATE_PASSWORD=$_CERT_PW"
+              echo "APPLE_SIGNING_IDENTITY=$_IDENTITY"
+              echo "APPLE_ID=$_ID"
+              echo "APPLE_PASSWORD=$_PW"
+              echo "APPLE_TEAM_ID=$_TEAM"
+            } >> "$GITHUB_ENV"
+            echo "Signing enabled."
+          else
+            echo "No signing secrets — building unsigned."
+          fi
+
       # Build .app bundles only; the DMGs are made with hdiutil below —
       # Tauri's bundle_dmg.sh drives Finder via AppleScript, which is flaky
       # on headless CI runners.
       - name: Build (Apple Silicon)
         shell: bash # explicit shell → pipefail, so tee can't mask a failure
         run: npx tauri build --target aarch64-apple-darwin --bundles app --verbose 2>&1 | tee -a build.log
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Build (Intel)
         shell: bash
         run: npx tauri build --target x86_64-apple-darwin --bundles app --verbose 2>&1 | tee -a build.log
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Package DMGs
         run: |
