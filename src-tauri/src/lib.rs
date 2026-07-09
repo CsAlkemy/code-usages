@@ -46,6 +46,9 @@ struct AppState {
     // Claimed (under the lock) while one poll is doing the blocking credential
     // read, so a concurrent poll can't launch a second Keychain prompt.
     cc_auto_inflight: bool,
+    // Last human-readable reason the Claude Code fallback produced no data
+    // (e.g. "token rejected (401)"), shown in the settings token field.
+    cc_note: Option<String>,
 }
 
 impl Default for AppState {
@@ -61,6 +64,7 @@ impl Default for AppState {
             cc_token_cache: None,
             cc_auto_failed: false,
             cc_auto_inflight: false,
+            cc_note: None,
         }
     }
 }
@@ -204,23 +208,38 @@ async fn poll(app: AppHandle) {
         None => {
             let manual = settings::load(&app).cc_token;
             match resolve_cc_token(&app, manual.as_deref()).await {
-                Some(token) => match claude_code::fetch_with_token(&token, USER_AGENT).await {
-                    Some(m) => (m, "claude-code"),
-                    None => {
-                        // The token may have expired/rotated — Claude Code writes
-                        // a fresh one. Drop the cache so the next poll re-reads
-                        // the credential store instead of reusing a dead token
-                        // forever.
-                        app.state::<Mutex<AppState>>().lock().unwrap().cc_token_cache = None;
-                        (usage::signed_out(), "none")
+                Some(token) => {
+                    let out = claude_code::fetch_with_token(&token, USER_AGENT).await;
+                    match out.model {
+                        Some(m) => {
+                            app.state::<Mutex<AppState>>().lock().unwrap().cc_note = None;
+                            (m, "claude-code")
+                        }
+                        None => {
+                            // Token may have expired/rotated (Claude Code writes a
+                            // fresh one) — drop the auto cache so the next poll
+                            // re-reads. Record why, so the UI isn't silent.
+                            let note = claude_code::status_note(out.status).to_string();
+                            let st = app.state::<Mutex<AppState>>();
+                            let mut s = st.lock().unwrap();
+                            s.cc_token_cache = None;
+                            s.cc_note = Some(note);
+                            (usage::signed_out(), "none")
+                        }
                     }
-                },
+                }
                 None => (usage::signed_out(), "none"),
             }
         }
     };
+    let cc_note = {
+        let st = app.state::<Mutex<AppState>>();
+        let n = st.lock().unwrap().cc_note.clone();
+        n
+    };
     if let Some(obj) = model.as_object_mut() {
         obj.insert("source".into(), json!(source));
+        obj.insert("ccNote".into(), json!(cc_note));
     }
     let signed_out = model["signedOut"].as_bool().unwrap_or(false);
     let was_signed_out = {

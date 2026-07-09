@@ -18,9 +18,10 @@ use serde_json::Value;
 use std::process::Command;
 
 // Candidate usage APIs, tried in order until one returns a parseable payload.
-// claude.ai first: subscription/setup tokens are claude.ai OAuth tokens, and
-// that endpoint returns the `limits` array normalize() already understands.
-const HOSTS: &[&str] = &["https://claude.ai", "https://api.anthropic.com"];
+// api.anthropic.com first: Claude Code's setup tokens (sk-ant-oat01-…) are
+// API-scoped and authenticate there; claude.ai Cloudflare-blocks non-browser
+// requests, so it's only a fallback for cookie-less subscription tokens.
+const HOSTS: &[&str] = &["https://api.anthropic.com", "https://claude.ai"];
 
 // Cheap, prompt-free sources: a token the user pasted, or the OAuth-token env
 // var. NOT ANTHROPIC_API_KEY — that's a console API key (sk-ant-api03-…) used
@@ -120,8 +121,9 @@ fn looks_like_token(s: &str) -> bool {
     s.len() > 20 && (s.starts_with("sk-ant-") || s.starts_with("oauth") || !s.contains(char::is_whitespace))
 }
 
-async fn api_get(client: &reqwest::Client, url: &str, token: &str) -> Option<Value> {
-    let resp = client
+// (body-if-2xx-json, http status or 0 on network error).
+async fn api_get(client: &reqwest::Client, url: &str, token: &str) -> (Option<Value>, u16) {
+    let resp = match client
         .get(url)
         .header("authorization", format!("Bearer {}", token))
         .header("accept", "application/json")
@@ -130,50 +132,96 @@ async fn api_get(client: &reqwest::Client, url: &str, token: &str) -> Option<Val
         .header("anthropic-version", "2023-06-01")
         .send()
         .await
-        .ok()?;
-    let status = resp.status();
+    {
+        Ok(r) => r,
+        Err(_) => return (None, 0),
+    };
+    let status = resp.status().as_u16();
     eprintln!("[claude-code] GET {} -> {}", url, status);
-    if !status.is_success() {
-        return None;
+    if !(200..300).contains(&status) {
+        return (None, status);
     }
-    resp.json::<Value>().await.ok()
+    (resp.json::<Value>().await.ok(), status)
 }
 
-// Call the usage API with the given token. Verified live: claude.ai's flat
-// /api/oauth/usage returns the same `limits` shape the web path uses, so it's
-// tried first; the org-scoped and api.anthropic.com paths remain as fallbacks
-// in case that endpoint changes.
-pub async fn fetch_with_token(token: &str, user_agent: &str) -> Option<Value> {
-    let client = reqwest::Client::builder().user_agent(user_agent).build().ok()?;
+// A short, human-readable reason when the fetch produced no data — shown in
+// the settings token field so failures aren't silent.
+pub fn status_note(status: u16) -> &'static str {
+    match status {
+        0 => "couldn't reach the usage API (network?)",
+        401 => "token rejected (401) — try `claude setup-token` again",
+        403 => "access denied (403) — token may lack usage scope",
+        429 => "rate-limited (429) — will retry automatically",
+        s if (500..600).contains(&s) => "Anthropic API error (5xx) — will retry",
+        200 => "connected, but the response wasn't recognized",
+        _ => "usage API returned an unexpected status",
+    }
+}
+
+pub struct Outcome {
+    pub model: Option<Value>,
+    pub status: u16, // the most informative status seen (for diagnostics)
+}
+
+// Call the usage API with the given token. Setup tokens authenticate at
+// api.anthropic.com; the flat /api/oauth/usage returns the same `limits` shape
+// the web path uses, so it's tried first, with org-scoped paths as fallback.
+pub async fn fetch_with_token(token: &str, user_agent: &str) -> Outcome {
+    let client = match reqwest::Client::builder().user_agent(user_agent).build() {
+        Ok(c) => c,
+        Err(_) => return Outcome { model: None, status: 0 },
+    };
+    let mut last_status = 0u16;
 
     for host in HOSTS {
-        if let Some(raw) = api_get(&client, &format!("{}/api/oauth/usage", host), token).await {
-            if let Some(model) = usage::normalize(&raw, None) {
-                return Some(model);
-            }
+        let (raw, status) = api_get(&client, &format!("{}/api/oauth/usage", host), token).await;
+        if status != 0 {
+            last_status = status;
         }
-        if let Some(orgs) = api_get(&client, &format!("{}/api/organizations", host), token).await {
-            if let Some(list) = orgs.as_array() {
-                let org = list
-                    .iter()
-                    .find(|o| {
-                        o["capabilities"]
-                            .as_array()
-                            .map(|c| c.iter().any(|v| v == "chat"))
-                            .unwrap_or(false)
-                    })
-                    .or_else(|| list.first());
-                if let Some(uuid) = org.and_then(|o| o["uuid"].as_str()) {
-                    let plan = org.and_then(|o| o["raven_type"].as_str());
-                    let url = format!("{}/api/organizations/{}/usage", host, uuid);
-                    if let Some(raw) = api_get(&client, &url, token).await {
-                        if let Some(model) = usage::normalize(&raw, plan) {
-                            return Some(model);
-                        }
+        if let Some(raw) = raw {
+            if let Some(model) = usage::normalize(&raw, None) {
+                return Outcome { model: Some(model), status };
+            }
+            last_status = 200; // reached it but couldn't parse
+        }
+        // 429 is a global rate limit for this token — more requests only
+        // deepen it, so stop entirely and report it.
+        if status == 429 {
+            break;
+        }
+        // 401/403 means THIS host rejected the token; a different host may
+        // accept it (setup tokens → api.anthropic.com, subscription/cookie
+        // tokens → claude.ai). Skip this host's org path, try the next host.
+        if matches!(status, 401 | 403) {
+            continue;
+        }
+
+        let (orgs, _) = api_get(&client, &format!("{}/api/organizations", host), token).await;
+        if let Some(list) = orgs.as_ref().and_then(Value::as_array) {
+            let org = list
+                .iter()
+                .find(|o| {
+                    o["capabilities"]
+                        .as_array()
+                        .map(|c| c.iter().any(|v| v == "chat"))
+                        .unwrap_or(false)
+                })
+                .or_else(|| list.first());
+            if let Some(uuid) = org.and_then(|o| o["uuid"].as_str()) {
+                let plan = org.and_then(|o| o["raven_type"].as_str());
+                let url = format!("{}/api/organizations/{}/usage", host, uuid);
+                let (raw, status) = api_get(&client, &url, token).await;
+                if status != 0 {
+                    last_status = status;
+                }
+                if let Some(raw) = raw {
+                    if let Some(model) = usage::normalize(&raw, plan) {
+                        return Outcome { model: Some(model), status };
                     }
+                    last_status = 200;
                 }
             }
         }
     }
-    None
+    Outcome { model: None, status: last_status }
 }
