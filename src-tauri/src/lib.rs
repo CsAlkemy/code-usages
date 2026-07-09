@@ -256,7 +256,9 @@ fn create_popover(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     #[cfg(target_os = "macos")]
     {
         use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
-        let _ = apply_vibrancy(&win, NSVisualEffectMaterial::Popover, None, Some(12.0));
+        // Menu = the material system menu-bar dropdowns use: more blur and
+        // more translucency than Popover. Radius must match the CSS card.
+        let _ = apply_vibrancy(&win, NSVisualEffectMaterial::Menu, None, Some(12.0));
     }
 
     let w = win.clone();
