@@ -18,13 +18,14 @@ account, no API key, and nothing ever leaves your machine.
 (`-arm64` for Apple Silicon, `-x64` for Intel), open it, and drag the app to
 Applications.
 
-Until releases are notarized with an Apple Developer ID, macOS will warn on
-first open: **right-click the app → Open → Open** (once). If it says the app
-"is damaged", clear the quarantine flag instead:
+Until releases are notarized with an Apple Developer ID, macOS blocks the
+first open with *"Apple could not verify … is free of malware"*. One-time fix:
 
-```bash
-xattr -cr "/Applications/Code Usages.app"
-```
+- Click **Done** → **System Settings → Privacy & Security** → scroll to
+  Security → **Open Anyway**, or
+- Terminal: `xattr -cr "/Applications/Code Usages.app"`
+
+Either way it's once per Mac — after that it opens normally forever.
 
 **First launch:** a claude.ai window opens — sign in as normal. Seconds after
 login the ring appears and the window hides itself. Your session persists
