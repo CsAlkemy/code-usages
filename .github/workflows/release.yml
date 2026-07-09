@@ -41,8 +41,11 @@ jobs:
 
       - run: npm ci
 
+      # Build .app bundles only; the DMGs are made with hdiutil below —
+      # Tauri's bundle_dmg.sh drives Finder via AppleScript, which is flaky
+      # on headless CI runners.
       - name: Build (Apple Silicon)
-        run: npx tauri build --target aarch64-apple-darwin
+        run: npx tauri build --target aarch64-apple-darwin --bundles app --verbose
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -52,7 +55,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Build (Intel)
-        run: npx tauri build --target x86_64-apple-darwin
+        run: npx tauri build --target x86_64-apple-darwin --bundles app --verbose
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -61,12 +64,21 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      - name: Publish release
+      - name: Package DMGs
         run: |
           v="${GITHUB_REF_NAME#v}"
           mkdir -p out
-          cp "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/Code Usages_${v}_aarch64.dmg" "out/code-usages-${v}-arm64.dmg"
-          cp "src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/Code Usages_${v}_x64.dmg" "out/code-usages-${v}-x64.dmg"
-          gh release create "$GITHUB_REF_NAME" out/*.dmg --generate-notes --latest
+          for pair in "aarch64-apple-darwin arm64" "x86_64-apple-darwin x64"; do
+            set -- $pair
+            staging="staging-$2"
+            mkdir -p "$staging"
+            cp -R "src-tauri/target/$1/release/bundle/macos/Code Usages.app" "$staging/"
+            ln -s /Applications "$staging/Applications"
+            hdiutil create -volname "Code Usages" -srcfolder "$staging" -ov -format UDZO "out/code-usages-${v}-$2.dmg"
+          done
+          ls -la out/
+
+      - name: Publish release
+        run: gh release create "$GITHUB_REF_NAME" out/*.dmg --generate-notes --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
