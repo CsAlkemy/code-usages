@@ -48,7 +48,7 @@ function drawRing(pct) {
   const S = cv.width; // 104 (2x of the 52px display size)
   const ctx = cv.getContext('2d');
   ctx.clearRect(0, 0, S, S);
-  const lw = 8, r = (S - lw) / 2 - 3, cx = S / 2, cy = S / 2;
+  const lw = 11, r = (S - lw) / 2 - 2, cx = S / 2, cy = S / 2;
 
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);

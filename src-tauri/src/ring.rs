@@ -36,7 +36,7 @@ fn arc_path(cx: f32, cy: f32, r: f32, from: f32, to: f32) -> Option<tiny_skia::P
 pub fn draw(pct: Option<i64>, dark: bool) -> Vec<u8> {
     let mut pixmap = Pixmap::new(SIZE, SIZE).expect("pixmap");
     let s = SIZE as f32;
-    let lw = 4.5_f32;
+    let lw = 6.5_f32;
     let r = s / 2.0 - lw / 2.0 - 2.0;
     let (cx, cy) = (s / 2.0, s / 2.0);
     let tau = std::f32::consts::TAU;
