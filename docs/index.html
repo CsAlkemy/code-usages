@@ -34,6 +34,13 @@
     .btn.ghost { background: var(--card); color: var(--text); border: 0.5px solid var(--hair); }
     .btn:hover { filter: brightness(1.08); }
     .note { font-size: 12.5px; color: var(--text-3); width: 100%; }
+    .installer { margin: -28px 0 44px; }
+    .installer-label { font-size: 12.5px; color: var(--text-3); margin-bottom: 8px; }
+    .installer code {
+      display: block; padding: 12px 14px; border-radius: 10px; overflow-x: auto;
+      background: var(--card); border: 0.5px solid var(--hair);
+      font-size: 12.5px; color: var(--text-2); white-space: nowrap;
+    }
     ul { list-style: none; display: grid; gap: 14px; border-top: 0.5px solid var(--hair); padding-top: 32px; }
     li { display: flex; gap: 12px; font-size: 14.5px; line-height: 1.5; color: var(--text-2); }
     li b { color: var(--text); font-weight: 600; }
@@ -61,6 +68,11 @@
       <a class="btn" href="https://github.com/csalkemy/code-usages/releases/latest">Download for macOS</a>
       <a class="btn ghost" href="https://github.com/csalkemy/code-usages">View on GitHub</a>
       <span class="note">Free · MIT licensed · Apple Silicon &amp; Intel</span>
+    </div>
+
+    <div class="installer">
+      <div class="installer-label">Or install from Terminal — skips the macOS security dialog:</div>
+      <code>curl -fsSL https://raw.githubusercontent.com/csalkemy/code-usages/main/install.sh | sh</code>
     </div>
 
     <ul>
