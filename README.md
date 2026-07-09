@@ -69,9 +69,8 @@ npm run dev      # run with hot console output
 npm run build    # release DMG into src-tauri/target/release/bundle/dmg/
 ```
 
-The previous Electron implementation lives in `legacy-electron/` (v0.3.0 and
-earlier were built from it) and will be removed once the Tauri port has
-settled.
+The previous Electron implementation (v0.3.0 and earlier) was removed after
+the Tauri port was verified; it lives on in git history and the v0.3.0 tag.
 
 ## Release
 
