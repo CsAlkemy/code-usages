@@ -28,7 +28,7 @@ xattr -cr "/Applications/Claude Usage Bar.app"
 Or via Homebrew (once the tap is set up — see `packaging/homebrew/`):
 
 ```bash
-brew install YOUR_GITHUB_USERNAME/tap/claude-usage-bar
+brew install CsAlkemy/tap/claude-usage-bar
 ```
 
 **First launch:** a claude.ai window opens — sign in as normal. Seconds after

@@ -11,7 +11,7 @@
 // publish target resolves to whichever account hosts the repo. The fallback
 // only matters for local `--publish` runs, which we don't do.
 const hasCert = !!process.env.CSC_LINK;
-const owner = process.env.GITHUB_REPOSITORY_OWNER || 'YOUR_GITHUB_USERNAME'; // TODO: set once, or ignore (CI overrides)
+const owner = process.env.GITHUB_REPOSITORY_OWNER || 'CsAlkemy';
 
 module.exports = {
   appId: 'com.tuliptech.claude-usage-bar',
