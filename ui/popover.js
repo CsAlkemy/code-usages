@@ -133,8 +133,33 @@ function render(data) {
 
   document.getElementById('signin').textContent = data.signedOut ? 'Sign in' : 'Open Claude';
 
+  updateTokenStatus(data);
+
   fitWindow();
 }
+
+// Feedback under the Claude Code token field. After a save we're "checking";
+// the next poll's model tells us the outcome.
+function updateTokenStatus(data) {
+  const el = document.getElementById('tokenStatus');
+  if (!el) return;
+  const hasToken = !!(settings.ccToken && settings.ccToken.trim());
+  if (data.source === 'claude-code') {
+    el.hidden = false; el.className = 'tokenstatus ok'; el.textContent = 'Connected via Claude Code'; tokenChecking = false;
+  } else if (data.source === 'web') {
+    // Web session is in use; the token is a standby and wasn't exercised.
+    if (hasToken) { el.hidden = false; el.className = 'tokenstatus'; el.textContent = 'Saved · standby (web session active)'; }
+    else el.hidden = true;
+    tokenChecking = false;
+  } else if (tokenChecking) {
+    el.hidden = false; el.className = 'tokenstatus'; el.textContent = 'Checking token…';
+  } else if (data.ccNote) {
+    el.hidden = false; el.className = 'tokenstatus err'; el.textContent = data.ccNote;
+  } else {
+    el.hidden = true;
+  }
+}
+let tokenChecking = false;
 
 // --------------------------------------------------------------------------
 // Settings
@@ -197,6 +222,9 @@ const ccTokenInput = document.getElementById('ccToken');
 if (saveTokenBtn && ccTokenInput) {
   const saveToken = async () => {
     saveTokenBtn.disabled = true;
+    tokenChecking = true;
+    const st = document.getElementById('tokenStatus');
+    if (st) { st.hidden = false; st.className = 'tokenstatus'; st.textContent = 'Checking token…'; }
     try { await commit({ ccToken: ccTokenInput.value.trim() }); }
     finally { saveTokenBtn.disabled = false; }
   };
