@@ -13,6 +13,11 @@ const path = require('path');
 exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') return;
   if (process.env.CSC_LINK) return; // real Developer ID signing follows — skip ad-hoc
+  // Universal builds pack an x64 and an arm64 half into *-temp dirs, then merge
+  // them; @electron/universal requires the halves' non-binary files to be
+  // byte-identical, and signing writes per-arch CodeResources that break that.
+  // Sign only the final merged app.
+  if (context.appOutDir.endsWith('-temp')) return;
   const app = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
   console.log('  • afterPack: ad-hoc signing', app);
   execSync(`codesign --force --deep --sign - --timestamp=none "${app}"`, { stdio: 'inherit' });
