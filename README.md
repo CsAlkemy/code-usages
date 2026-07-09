@@ -52,6 +52,20 @@ across restarts, so this is a one-time thing.
 3. The tray ring is rasterized in Rust (`src-tauri/src/ring.rs`); the popover
    is plain HTML/CSS/JS (`ui/`) over Tauri IPC.
 
+### Signed in only through Claude Code?
+
+If you authenticate with a Claude Code **setup token** and can't do the
+claude.ai browser login, the app falls back to Claude Code's own credentials
+(`src-tauri/src/claude_code.rs`). When the web session has no data it looks,
+in order, for a token you pasted in Settings, the `CLAUDE_CODE_OAUTH_TOKEN`
+env var, `~/.claude/.credentials.json`, then the macOS Keychain item Claude
+Code created — and calls `claude.ai/api/oauth/usage` with it. macOS asks once
+for permission to read the Keychain item (click **Always Allow**). Nothing is
+read from the credential store for users who are signed in on the web.
+
+To use a pasted token: run `claude setup-token`, then **Settings → Claude Code
+token** in the app.
+
 Polling is deliberately gentle — please keep it that way (`POLL_SECS` in
 `src-tauri/src/lib.rs`).
 

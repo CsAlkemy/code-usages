@@ -1,3 +1,4 @@
+mod claude_code;
 mod ring;
 mod settings;
 mod usage;
@@ -32,6 +33,19 @@ struct AppState {
     tray_rect: Option<tauri::Rect>,
     last_toggle: Option<std::time::Instant>,
     popover_shown_at: Option<std::time::Instant>,
+    // True once the claude.ai web session has ever returned data this run —
+    // gates the Claude Code auto-read so a web user's transient failure can't
+    // trigger a Keychain prompt.
+    web_ever_ok: bool,
+    // The auto-read (file/Keychain) token, cached once found so we don't hit
+    // the Keychain on every poll (which would re-prompt without "Always Allow").
+    cc_token_cache: Option<String>,
+    // Set if an auto-read attempt found nothing, so we stop retrying (and stop
+    // re-prompting) for the rest of the session.
+    cc_auto_failed: bool,
+    // Claimed (under the lock) while one poll is doing the blocking credential
+    // read, so a concurrent poll can't launch a second Keychain prompt.
+    cc_auto_inflight: bool,
 }
 
 impl Default for AppState {
@@ -43,6 +57,10 @@ impl Default for AppState {
             tray_rect: None,
             last_toggle: None,
             popover_shown_at: None,
+            web_ever_ok: false,
+            cc_token_cache: None,
+            cc_auto_failed: false,
+            cc_auto_inflight: false,
         }
     }
 }
@@ -174,7 +192,36 @@ async fn fetch_usage(app: &AppHandle) -> Option<Value> {
 }
 
 async fn poll(app: AppHandle) {
-    let model = fetch_usage(&app).await.unwrap_or_else(usage::signed_out);
+    // Primary: the claude.ai web session. Fallback: Claude Code's local token.
+    let web = fetch_usage(&app).await;
+
+    let (mut model, source) = match web {
+        Some(m) => {
+            let state = app.state::<Mutex<AppState>>();
+            state.lock().unwrap().web_ever_ok = true;
+            (m, "web")
+        }
+        None => {
+            let manual = settings::load(&app).cc_token;
+            match resolve_cc_token(&app, manual.as_deref()).await {
+                Some(token) => match claude_code::fetch_with_token(&token, USER_AGENT).await {
+                    Some(m) => (m, "claude-code"),
+                    None => {
+                        // The token may have expired/rotated — Claude Code writes
+                        // a fresh one. Drop the cache so the next poll re-reads
+                        // the credential store instead of reusing a dead token
+                        // forever.
+                        app.state::<Mutex<AppState>>().lock().unwrap().cc_token_cache = None;
+                        (usage::signed_out(), "none")
+                    }
+                },
+                None => (usage::signed_out(), "none"),
+            }
+        }
+    };
+    if let Some(obj) = model.as_object_mut() {
+        obj.insert("source".into(), json!(source));
+    }
     let signed_out = model["signedOut"].as_bool().unwrap_or(false);
     let was_signed_out = {
         let state = app.state::<Mutex<AppState>>();
@@ -198,6 +245,48 @@ async fn poll(app: AppHandle) {
 fn spawn_poll(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move { poll(app).await });
+}
+
+// Decide which Claude Code token to use for the fallback fetch. Manual/env are
+// prompt-free and always tried. The credential-store read (file/Keychain) is
+// only attempted for users who've never had a web session this run, cached on
+// success, and not retried after a miss — so the Keychain prompts at most once
+// and a web user is never touched. The blocking read is claimed under the lock
+// (cc_auto_inflight) and run on a blocking thread so concurrent polls can't
+// stack Keychain prompts or park an async worker on the modal dialog.
+async fn resolve_cc_token(app: &AppHandle, manual: Option<&str>) -> Option<String> {
+    if let Some(t) = claude_code::manual_or_env(manual) {
+        return Some(t);
+    }
+    {
+        let state = app.state::<Mutex<AppState>>();
+        let mut s = state.lock().unwrap();
+        if let Some(cached) = s.cc_token_cache.clone() {
+            return Some(cached);
+        }
+        if s.web_ever_ok || s.cc_auto_failed || s.cc_auto_inflight {
+            return None;
+        }
+        s.cc_auto_inflight = true; // claim the read; concurrent polls bail above
+    }
+    let token = tauri::async_runtime::spawn_blocking(claude_code::read_auto_token)
+        .await
+        .ok()
+        .flatten();
+    let state = app.state::<Mutex<AppState>>();
+    let mut s = state.lock().unwrap();
+    s.cc_auto_inflight = false;
+    match token {
+        Some(t) => {
+            eprintln!("[claude-code] token found via credential store");
+            s.cc_token_cache = Some(t.clone());
+            Some(t)
+        }
+        None => {
+            s.cc_auto_failed = true;
+            None
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -350,7 +439,12 @@ fn current(app: &AppHandle) -> (Value, bool) {
 fn settings_json(app: &AppHandle) -> Value {
     let s = settings::load(app);
     let open_at_login = app.autolaunch().is_enabled().unwrap_or(false);
-    json!({ "showNumber": s.show_number, "theme": s.theme, "openAtLogin": open_at_login })
+    json!({
+        "showNumber": s.show_number,
+        "theme": s.theme,
+        "openAtLogin": open_at_login,
+        "ccToken": s.cc_token.unwrap_or_default(),
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -374,11 +468,21 @@ fn set_settings(app: AppHandle, patch: Value) -> Value {
     if let Some(v) = patch["theme"].as_str() {
         s.theme = v.to_string();
     }
+    let mut token_changed = false;
+    if let Some(v) = patch["ccToken"].as_str() {
+        let v = v.trim();
+        s.cc_token = if v.is_empty() { None } else { Some(v.to_string()) };
+        token_changed = true;
+    }
     settings::save(&app, &s);
     let (model, _) = current(&app);
     update_tray(&app, &model);
     let out = settings_json(&app);
     let _ = app.emit_to("popover", "settings", &out);
+    // A new token should take effect now, not at the next scheduled poll.
+    if token_changed {
+        spawn_poll(&app);
+    }
     out
 }
 

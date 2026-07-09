@@ -128,7 +128,8 @@ function render(data) {
   const updated = document.getElementById('updated');
   const stamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   updated.className = data.signedOut ? 'mocknote' : 'updated';
-  updated.textContent = data.signedOut ? 'not signed in' : `updated ${stamp}`;
+  const via = data.source === 'claude-code' ? 'via Claude Code · ' : '';
+  updated.textContent = data.signedOut ? 'not signed in' : `${via}updated ${stamp}`;
 
   document.getElementById('signin').textContent = data.signedOut ? 'Sign in' : 'Open Claude';
 
@@ -149,6 +150,10 @@ function applySettings() {
   document.querySelectorAll('#themeSeg .seg').forEach((b) => {
     b.setAttribute('aria-checked', String(b.dataset.val === (settings.theme || 'system')));
   });
+
+  // Don't clobber the field while the user is typing in it.
+  const tokenEl = document.getElementById('ccToken');
+  if (tokenEl && document.activeElement !== tokenEl) tokenEl.value = settings.ccToken || '';
 
   if (lastData) render(lastData); // theme change → recolour ring/bars, toggle → number
 }
@@ -186,6 +191,18 @@ document.getElementById('toggleLogin').addEventListener('click', () => commit({ 
 document.querySelectorAll('#themeSeg .seg').forEach((b) => {
   b.addEventListener('click', () => commit({ theme: b.dataset.val }));
 });
+
+const saveTokenBtn = document.getElementById('saveToken');
+const ccTokenInput = document.getElementById('ccToken');
+if (saveTokenBtn && ccTokenInput) {
+  const saveToken = async () => {
+    saveTokenBtn.disabled = true;
+    try { await commit({ ccToken: ccTokenInput.value.trim() }); }
+    finally { saveTokenBtn.disabled = false; }
+  };
+  saveTokenBtn.addEventListener('click', saveToken);
+  ccTokenInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveToken(); });
+}
 
 document.getElementById('refresh').addEventListener('click', async () => {
   const btn = document.getElementById('refresh');
