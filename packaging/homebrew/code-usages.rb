@@ -8,7 +8,7 @@
 # Users then install with:
 #   brew install CsAlkemy/tap/code-usages
 cask "code-usages" do
-  version "0.3.0"
+  version "0.4.0"
 
   on_arm do
     sha256 "TODO_SHA256_OF_ARM64_DMG"
@@ -23,12 +23,12 @@ cask "code-usages" do
   desc "Menu-bar ring showing your claude.ai plan usage"
   homepage "https://github.com/csalkemy/code-usages"
 
-  auto_updates true
-
   app "Code Usages.app"
 
   zap trash: [
-    "~/Library/Application Support/Code Usages",
+    "~/Library/Application Support/com.tuliptech.code-usages",
+    "~/Library/WebKit/com.tuliptech.code-usages",
+    "~/Library/Caches/com.tuliptech.code-usages",
     "~/Library/Preferences/com.tuliptech.code-usages.plist",
   ]
 end
