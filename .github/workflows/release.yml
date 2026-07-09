@@ -89,6 +89,12 @@ jobs:
             staging="staging-$2"
             mkdir -p "$staging"
             cp -R "src-tauri/target/$1/release/bundle/macos/Code Usages.app" "$staging/"
+            # Unsigned quarantined apps report "damaged and can't be opened";
+            # a sealed ad-hoc signature downgrades that to the right-click →
+            # Open flow. Skipped when real signing already happened.
+            if [ -z "${APPLE_CERTIFICATE:-}" ]; then
+              codesign --force --deep --sign - "$staging/Code Usages.app"
+            fi
             ln -s /Applications "$staging/Applications"
             hdiutil create -volname "Code Usages" -srcfolder "$staging" -ov -format UDZO "out/code-usages-${v}-$2.dmg"
           done
