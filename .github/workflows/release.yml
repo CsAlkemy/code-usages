@@ -41,3 +41,10 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # electron-builder uploads assets to a draft — publish it with
+      # auto-generated notes so the release goes live in one step.
+      - name: Publish release notes
+        run: gh release edit ${{ github.ref_name }} --draft=false --latest --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
