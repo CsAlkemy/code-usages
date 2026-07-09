@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   release:
@@ -45,7 +46,8 @@ jobs:
       # Tauri's bundle_dmg.sh drives Finder via AppleScript, which is flaky
       # on headless CI runners.
       - name: Build (Apple Silicon)
-        run: npx tauri build --target aarch64-apple-darwin --bundles app --verbose
+        shell: bash # explicit shell → pipefail, so tee can't mask a failure
+        run: npx tauri build --target aarch64-apple-darwin --bundles app --verbose 2>&1 | tee -a build.log
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -55,7 +57,8 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Build (Intel)
-        run: npx tauri build --target x86_64-apple-darwin --bundles app --verbose
+        shell: bash
+        run: npx tauri build --target x86_64-apple-darwin --bundles app --verbose 2>&1 | tee -a build.log
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -80,5 +83,20 @@ jobs:
 
       - name: Publish release
         run: gh release create "$GITHUB_REF_NAME" out/*.dmg --generate-notes --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Failure logs aren't readable via the unauthenticated API, but issues
+      # are — file the build log tail as an issue so failures self-report.
+      - name: Report failure as issue
+        if: failure()
+        run: |
+          {
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo '```'
+            tail -c 60000 build.log 2>/dev/null || echo "(no build.log)"
+            echo '```'
+          } > issue-body.md
+          gh issue create --title "CI failure: $GITHUB_REF_NAME (run $GITHUB_RUN_ID)" --body-file issue-body.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

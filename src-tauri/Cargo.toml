@@ -1,6 +1,6 @@
 [package]
 name = "code-usages"
-version = "0.4.1"
+version = "0.4.2"
 description = "Menu-bar ring showing your claude.ai plan usage"
 edition = "2021"
 license = "MIT"
@@ -31,6 +31,7 @@ custom-protocol = ["tauri/custom-protocol"]
 
 [profile.release]
 codegen-units = 1
-lto = true
+# thin, not fat: fat LTO's link step can OOM 7 GB CI runners for ~2% size gain
+lto = "thin"
 opt-level = "s"
 strip = true
