@@ -9,6 +9,10 @@ pub struct Settings {
     pub show_number: bool,
     #[serde(default = "default_theme")]
     pub theme: String, // "system" | "light" | "dark"
+    // One-time flag: autostart is enabled by default on first launch, but only
+    // once — so a user who later turns it off stays off.
+    #[serde(default)]
+    pub autostart_configured: bool,
 }
 
 fn default_theme() -> String {
@@ -17,7 +21,7 @@ fn default_theme() -> String {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { show_number: false, theme: default_theme() }
+        Self { show_number: false, theme: default_theme(), autostart_configured: false }
     }
 }
 

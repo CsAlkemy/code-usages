@@ -443,6 +443,19 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let handle = app.handle().clone();
+
+            // Open at login by default (once — respects a later manual off).
+            // Skip in dev builds so `cargo run` binaries don't register
+            // themselves as login items.
+            if !cfg!(debug_assertions) {
+                let mut s = settings::load(&handle);
+                if !s.autostart_configured {
+                    let _ = handle.autolaunch().enable();
+                    s.autostart_configured = true;
+                    settings::save(&handle, &s);
+                }
+            }
+
             create_popover(&handle)?;
             create_session_window(&handle)?;
 
