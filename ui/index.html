@@ -82,11 +82,22 @@
           </div>
           <button class="switch" id="toggleLogin" role="switch" aria-checked="false"><span class="knob"></span></button>
         </div>
+
+        <div class="setrow col">
+          <div class="settext">
+            <div class="setname">Claude Code token</div>
+            <div class="setdesc">Fallback if you can't sign in on the web. Run <code>claude setup-token</code> and paste it here.</div>
+          </div>
+          <div class="tokenrow">
+            <input type="password" id="ccToken" class="tokeninput" placeholder="sk-ant-oat01-…" autocomplete="off" spellcheck="false">
+            <button class="btn" id="saveToken">Save</button>
+          </div>
+        </div>
       </div>
 
       <footer class="ftr ftr-settings">
         <span class="brand">code-usages</span>
-        <span class="ver">v0.4.6</span>
+        <span class="ver">v0.5.0</span>
       </footer>
     </section>
 

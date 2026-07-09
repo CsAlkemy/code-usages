@@ -13,6 +13,11 @@ pub struct Settings {
     // once — so a user who later turns it off stays off.
     #[serde(default)]
     pub autostart_configured: bool,
+    // Optional Claude Code setup token (sk-ant-oat01-…) the user pastes when
+    // they can't do the claude.ai browser login. Stored in the app's own
+    // config dir, same trust boundary as the web session's cookies.
+    #[serde(default)]
+    pub cc_token: Option<String>,
 }
 
 fn default_theme() -> String {
@@ -21,7 +26,12 @@ fn default_theme() -> String {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { show_number: false, theme: default_theme(), autostart_configured: false }
+        Self {
+            show_number: false,
+            theme: default_theme(),
+            autostart_configured: false,
+            cc_token: None,
+        }
     }
 }
 
