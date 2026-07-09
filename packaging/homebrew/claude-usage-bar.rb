@@ -11,10 +11,10 @@ cask "claude-usage-bar" do
   version "0.2.0"
   sha256 "TODO_SHA256_OF_DMG"
 
-  url "https://github.com/CsAlkemy/claude-usage-bar/releases/download/v#{version}/claude-usage-bar-#{version}-universal.dmg"
+  url "https://github.com/csalkemy/code-usages/releases/download/v#{version}/claude-usage-bar-#{version}-universal.dmg"
   name "Claude Usage Bar"
   desc "Menu-bar ring showing your claude.ai plan usage"
-  homepage "https://github.com/CsAlkemy/claude-usage-bar"
+  homepage "https://github.com/csalkemy/code-usages"
 
   auto_updates true
 

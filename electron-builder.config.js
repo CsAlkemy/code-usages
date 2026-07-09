@@ -20,7 +20,7 @@ module.exports = {
   files: ['src/**/*', 'assets/**/*', 'package.json'],
   // No spaces in artifact names — keeps Homebrew/curl URLs sane.
   artifactName: '${name}-${version}-${arch}.${ext}',
-  publish: { provider: 'github', owner, repo: 'claude-usage-bar' },
+  publish: { provider: 'github', owner, repo: 'code-usages' },
   mac: {
     // zip alongside dmg: electron-updater consumes the zip for auto-updates.
     target: [{ target: 'dmg' }, { target: 'zip' }],
