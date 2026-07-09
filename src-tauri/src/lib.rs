@@ -15,8 +15,12 @@ use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_positioner::{Position, WindowExt};
 
 const CLAUDE_ORIGIN: &str = "https://claude.ai";
-// Chrome UA so Cloudflare's Turnstile passes (same trick as the Electron app).
-const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+// The webview is WKWebView (Safari's engine), so the UA must claim Safari —
+// a Chrome UA on WebKit is an engine/UA mismatch that makes Cloudflare's
+// Turnstile checkbox loop forever. (Electron needed the opposite: a Chrome UA
+// to match its Chromium engine.) The reqwest client reuses this UA because
+// the cf_clearance cookie is bound to the UA that solved the challenge.
+const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15";
 const POLL_SECS: u64 = 240;
 const POPOVER_W: f64 = 340.0;
 const POPOVER_H: f64 = 384.0;
