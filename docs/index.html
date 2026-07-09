@@ -1,0 +1,79 @@
+<!doctype html>
+<!-- Landing page, served free via GitHub Pages: repo Settings → Pages →
+     "Deploy from a branch" → main /docs. Replace YOUR_GITHUB_USERNAME below. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claude Usage Bar — your Claude limits, in the menu bar</title>
+  <meta name="description" content="A tiny macOS menu-bar app showing your claude.ai session and weekly usage as a live progress ring. Free and open source.">
+  <style>
+    :root {
+      --bg: #1e1d1b; --card: rgba(255,255,255,0.05); --hair: rgba(255,255,255,0.1);
+      --text: #f3f1ec; --text-2: #b1afa6; --text-3: #7c7a70;
+      --accent: #d97757; --green: #33c89a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 48px 24px;
+      background-image: radial-gradient(1000px 500px at 70% -10%, rgba(217,119,87,0.13), transparent),
+                        radial-gradient(800px 400px at 10% 110%, rgba(51,200,154,0.09), transparent);
+    }
+    main { max-width: 640px; width: 100%; }
+    .ring { width: 64px; height: 64px; margin-bottom: 28px; }
+    h1 { font-size: 40px; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 14px; }
+    .sub { font-size: 17px; line-height: 1.55; color: var(--text-2); margin-bottom: 32px; max-width: 54ch; }
+    .cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 44px; }
+    .btn {
+      display: inline-block; padding: 12px 22px; border-radius: 12px; text-decoration: none;
+      font-size: 15px; font-weight: 600; background: var(--accent); color: #1c1512;
+    }
+    .btn.ghost { background: var(--card); color: var(--text); border: 0.5px solid var(--hair); }
+    .btn:hover { filter: brightness(1.08); }
+    .note { font-size: 12.5px; color: var(--text-3); width: 100%; }
+    ul { list-style: none; display: grid; gap: 14px; border-top: 0.5px solid var(--hair); padding-top: 32px; }
+    li { display: flex; gap: 12px; font-size: 14.5px; line-height: 1.5; color: var(--text-2); }
+    li b { color: var(--text); font-weight: 600; }
+    .dot { color: var(--green); flex-shrink: 0; }
+    footer { margin-top: 40px; font-size: 12.5px; color: var(--text-3); }
+    footer a { color: var(--text-2); }
+  </style>
+</head>
+<body>
+  <main>
+    <svg class="ring" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="7"/>
+      <circle cx="32" cy="32" r="26" fill="none" stroke="#33c89a" stroke-width="7" stroke-linecap="round"
+              stroke-dasharray="163" stroke-dashoffset="120" transform="rotate(-90 32 32)"/>
+    </svg>
+
+    <h1>Your Claude limits,<br>always in the menu bar</h1>
+    <p class="sub">
+      A tiny macOS app that shows your claude.ai <b>current-session</b> and weekly
+      usage as a live progress ring — the numbers you'd otherwise dig out of
+      Settings, one glance away. Sign in once; everything stays on your Mac.
+    </p>
+
+    <div class="cta">
+      <a class="btn" href="https://github.com/YOUR_GITHUB_USERNAME/claude-usage-bar/releases/latest">Download for macOS</a>
+      <a class="btn ghost" href="https://github.com/YOUR_GITHUB_USERNAME/claude-usage-bar">View on GitHub</a>
+      <span class="note">Free · MIT licensed · Apple Silicon &amp; Intel</span>
+    </div>
+
+    <ul>
+      <li><span class="dot">●</span><span><b>Session-first.</b> The ring tracks your 5-hour session limit — the one that actually interrupts you — with weekly limits a click away.</span></li>
+      <li><span class="dot">●</span><span><b>Native glass.</b> The popover uses real macOS vibrancy, light and dark.</span></li>
+      <li><span class="dot">●</span><span><b>Private by design.</b> Reads your own logged-in session locally. No account, no API key, nothing leaves your machine.</span></li>
+      <li><span class="dot">●</span><span><b>Auto-updates.</b> New releases install themselves.</span></li>
+    </ul>
+
+    <footer>
+      Unofficial — not affiliated with Anthropic. ·
+      <a href="https://github.com/YOUR_GITHUB_USERNAME/claude-usage-bar/issues">Report an issue</a>
+    </footer>
+  </main>
+</body>
+</html>

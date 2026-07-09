@@ -1,0 +1,43 @@
+# Push a tag like v0.2.0 → builds a universal macOS DMG + zip and attaches
+# them to a GitHub Release (electron-builder --publish).
+#
+# Works day one with NO secrets configured — you just get an unsigned build
+# (users right-click → Open). Add these repository secrets to ship signed,
+# notarized builds instead (nothing else changes):
+#
+#   CSC_LINK                     base64 of the Developer ID Application .p12
+#   CSC_KEY_PASSWORD             password for that .p12
+#   APPLE_ID                     Apple ID email used for notarization
+#   APPLE_APP_SPECIFIC_PASSWORD  app-specific password for that Apple ID
+#   APPLE_TEAM_ID                10-char team id from developer.apple.com
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build, sign, notarize, publish
+        run: npx electron-builder --mac --universal --publish always -c electron-builder.config.js
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
