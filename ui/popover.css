@@ -6,7 +6,7 @@
    ========================================================================== */
 :root, :root[data-theme="light"] {
   --bg: #ffffff;
-  --bg-glass: rgba(255, 255, 255, 0.42);
+  --bg-glass: rgba(255, 255, 255, 0.28);
   --inset: #f0efeb;          /* recessed track (segmented bg, switch off) */
   --elev: #ffffff;           /* raised pill (active segment) */
   --border: rgba(20, 20, 15, 0.09);
@@ -23,7 +23,7 @@
 }
 :root[data-theme="dark"] {
   --bg: #262523;
-  --bg-glass: rgba(30, 29, 27, 0.38);
+  --bg-glass: rgba(30, 29, 27, 0.30);
   --inset: #1b1a18;
   --elev: #3a3733;
   --border: rgba(255, 255, 255, 0.11);
@@ -41,7 +41,7 @@
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
     --bg: #262523;
-    --bg-glass: rgba(30, 29, 27, 0.38);
+    --bg-glass: rgba(30, 29, 27, 0.30);
     --inset: #1b1a18;
     --elev: #3a3733;
     --border: rgba(255, 255, 255, 0.11);
@@ -86,15 +86,37 @@ body {
   overflow: hidden;
 }
 
-/* Glass mode (macOS): the window itself is the vibrancy card — the tint sits
-   over the blur. The vibrancy view is rounded to 12px (window-vibrancy), so
-   the tint matches that radius. */
-:root[data-glass] body { padding: 0; background: var(--bg-glass); border-radius: 12px; overflow: hidden; min-height: 100vh; }
+/* Glass mode (macOS): the window is a vibrancy view rounded to 12px (set in
+   Rust). The tint lives on the card — NOT the body, whose background would
+   propagate to the window canvas and paint square over the rounded corners.
+   The window is resized to the card's height, so the card fills it. */
+:root[data-glass] body { padding: 0; background: transparent; }
 :root[data-glass] .card {
-  background: transparent;
-  border: none;
-  border-radius: 0;
+  background: var(--bg-glass);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
   box-shadow: none;
+}
+
+/* Translucent glass needs stronger secondary text + track contrast than the
+   solid card; these override the theme blocks above (same specificity, later
+   in the file wins). */
+:root[data-glass] {
+  --text-2: #4d4c47;
+  --text-3: #67665f;
+  --track: rgba(20, 20, 15, 0.16);
+}
+:root[data-glass][data-theme="dark"] {
+  --text-2: #cfcdc4;
+  --text-3: #a3a197;
+  --track: rgba(255, 255, 255, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-glass][data-theme="system"] {
+    --text-2: #cfcdc4;
+    --text-3: #a3a197;
+    --track: rgba(255, 255, 255, 0.18);
+  }
 }
 .view {
   display: flex;
@@ -148,7 +170,7 @@ body {
 .rowhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .rowlabel { font-size: 12.5px; color: var(--text); font-weight: 500; }
 .rowpct { font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-2); }
-.bar { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; margin: 7px 0 4px; }
+.bar { height: 9px; border-radius: 999px; background: var(--track); overflow: hidden; margin: 7px 0 4px; }
 .fill { height: 100%; border-radius: 999px; transition: width 0.4s cubic-bezier(0.22,1,0.36,1); }
 .reset { font-size: 10.5px; color: var(--text-3); }
 .signedout { font-size: 12px; color: var(--text-3); text-align: center; padding: 16px 8px; }
