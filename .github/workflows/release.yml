@@ -44,7 +44,11 @@ jobs:
 
       # electron-builder uploads assets to a draft — publish it with
       # auto-generated notes so the release goes live in one step.
+      # (gh release edit has no --generate-notes flag; generate via the API.)
       - name: Publish release notes
-        run: gh release edit ${{ github.ref_name }} --draft=false --latest --generate-notes
+        run: |
+          gh api "repos/${{ github.repository }}/releases/generate-notes" \
+            -f tag_name='${{ github.ref_name }}' --jq .body > /tmp/notes.md
+          gh release edit '${{ github.ref_name }}' --draft=false --latest --notes-file /tmp/notes.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
