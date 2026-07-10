@@ -83,10 +83,18 @@
           <button class="switch" id="toggleLogin" role="switch" aria-checked="false"><span class="knob"></span></button>
         </div>
 
+        <div class="setrow">
+          <div class="settext">
+            <div class="setname">Use Claude Code token</div>
+            <div class="setdesc">Skip the web sign-in and read usage from the token below</div>
+          </div>
+          <button class="switch" id="togglePreferToken" role="switch" aria-checked="false"><span class="knob"></span></button>
+        </div>
+
         <div class="setrow col">
           <div class="settext">
             <div class="setname">Claude Code token</div>
-            <div class="setdesc">Fallback if you can't sign in on the web. Run <code>claude setup-token</code> and paste it here.</div>
+            <div class="setdesc">Run <code>claude setup-token</code> and paste it here. Used as a fallback, or always when "Use Claude Code token" is on.</div>
           </div>
           <div class="tokenrow">
             <input type="password" id="ccToken" class="tokeninput" placeholder="sk-ant-oat01-…" autocomplete="off" spellcheck="false">
@@ -98,7 +106,7 @@
 
       <footer class="ftr ftr-settings">
         <span class="brand">code-usages</span>
-        <span class="ver">v0.5.1</span>
+        <span class="ver">v0.6.0</span>
       </footer>
     </section>
 

@@ -18,6 +18,13 @@ pub struct Settings {
     // config dir, same trust boundary as the web session's cookies.
     #[serde(default)]
     pub cc_token: Option<String>,
+    // When true, skip the claude.ai web session entirely and always read usage
+    // via the Claude Code token (Bearer). For teammates who never sign in on
+    // the web — the token becomes the source of truth, not just a fallback, so
+    // it's actually exercised (and a bad token surfaces its error) even on a
+    // machine that could otherwise sign in.
+    #[serde(default)]
+    pub prefer_token: bool,
 }
 
 fn default_theme() -> String {
@@ -31,6 +38,7 @@ impl Default for Settings {
             theme: default_theme(),
             autostart_configured: false,
             cc_token: None,
+            prefer_token: false,
         }
     }
 }

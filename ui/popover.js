@@ -23,7 +23,7 @@ const THRESH = [
   { max: 101, light: '#D64545', dark: '#F06B6B' },
 ];
 
-let settings = { showNumber: false, theme: 'system', openAtLogin: false };
+let settings = { showNumber: false, theme: 'system', openAtLogin: false, preferToken: false };
 let lastData = null;
 
 // macOS gets native vibrancy (applied on the Tauri window); flag it so the CSS
@@ -171,6 +171,8 @@ function applySettings() {
   numSw.setAttribute('aria-checked', String(!!settings.showNumber));
   const loginSw = document.getElementById('toggleLogin');
   loginSw.setAttribute('aria-checked', String(!!settings.openAtLogin));
+  const preferSw = document.getElementById('togglePreferToken');
+  if (preferSw) preferSw.setAttribute('aria-checked', String(!!settings.preferToken));
 
   document.querySelectorAll('#themeSeg .seg').forEach((b) => {
     b.setAttribute('aria-checked', String(b.dataset.val === (settings.theme || 'system')));
@@ -213,6 +215,7 @@ document.getElementById('backSettings').addEventListener('click', () => showView
 
 document.getElementById('toggleNumber').addEventListener('click', () => commit({ showNumber: !settings.showNumber }));
 document.getElementById('toggleLogin').addEventListener('click', () => commit({ openAtLogin: !settings.openAtLogin }));
+document.getElementById('togglePreferToken').addEventListener('click', () => commit({ preferToken: !settings.preferToken }));
 document.querySelectorAll('#themeSeg .seg').forEach((b) => {
   b.addEventListener('click', () => commit({ theme: b.dataset.val }));
 });

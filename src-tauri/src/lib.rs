@@ -197,7 +197,11 @@ async fn fetch_usage(app: &AppHandle) -> Option<Value> {
 
 async fn poll(app: AppHandle) {
     // Primary: the claude.ai web session. Fallback: Claude Code's local token.
-    let web = fetch_usage(&app).await;
+    // When the user forces token mode, skip the web session entirely so the
+    // stored token is always the source and is actually exercised (otherwise a
+    // working web login wins every poll and the token never runs).
+    let prefer_token = settings::load(&app).prefer_token;
+    let web = if prefer_token { None } else { fetch_usage(&app).await };
 
     let (mut model, source) = match web {
         Some(m) => {
@@ -463,6 +467,7 @@ fn settings_json(app: &AppHandle) -> Value {
         "theme": s.theme,
         "openAtLogin": open_at_login,
         "ccToken": s.cc_token.unwrap_or_default(),
+        "preferToken": s.prefer_token,
     })
 }
 
@@ -487,19 +492,23 @@ fn set_settings(app: AppHandle, patch: Value) -> Value {
     if let Some(v) = patch["theme"].as_str() {
         s.theme = v.to_string();
     }
-    let mut token_changed = false;
+    let mut needs_repoll = false;
     if let Some(v) = patch["ccToken"].as_str() {
         let v = v.trim();
         s.cc_token = if v.is_empty() { None } else { Some(v.to_string()) };
-        token_changed = true;
+        needs_repoll = true;
+    }
+    if let Some(v) = patch["preferToken"].as_bool() {
+        s.prefer_token = v;
+        needs_repoll = true;
     }
     settings::save(&app, &s);
     let (model, _) = current(&app);
     update_tray(&app, &model);
     let out = settings_json(&app);
     let _ = app.emit_to("popover", "settings", &out);
-    // A new token should take effect now, not at the next scheduled poll.
-    if token_changed {
+    // A new token or a source switch should take effect now, not next poll.
+    if needs_repoll {
         spawn_poll(&app);
     }
     out
@@ -648,7 +657,9 @@ pub fn run() {
                 tokio_sleep(Duration::from_millis(2500)).await;
                 poll(app_handle.clone()).await;
                 let (_, signed_out) = current(&app_handle);
-                if signed_out {
+                // Don't pop the claude.ai sign-in window at token-mode users —
+                // they've opted out of the web login entirely.
+                if signed_out && !settings::load(&app_handle).prefer_token {
                     open_claude(app_handle.clone());
                 }
                 loop {
